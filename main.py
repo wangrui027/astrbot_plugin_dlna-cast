@@ -90,48 +90,60 @@ class MyPlugin(Star):
 
         # 获取当前选中的服务器信息
         success, msg, selected = self.webdav_manager.get_current_selected()
-        selected_info = f"\n\n✅ 当前选中：{selected['name']}" if success else "\n\n当前未选中任何服务器"
+        selected_info = f"\n✅ 当前选中：**{selected['name']}**" if success else "\n⚠️ 当前未选中任何服务器"
 
         help_text = f"""
-📚 WebDAV 指令帮助：
+### 📚 WebDAV 指令帮助：
 
-1️⃣ /dlna-cast webdav help
+1️⃣ `/dlna-cast` `webdav` `help`
     显示本帮助信息
 
-2️⃣ /dlna-cast webdav add <名称> <URL> [用户名] [密码]
+2️⃣ `/dlna-cast` `webdav` `add` `<名称>` `<URL>` `[用户名]` `[密码]`
     添加WebDAV服务器配置（第一个添加的会自动选中）
-    示例：/dlna-cast webdav add 我的NAS http://192.168.1.100:5005/webdav admin 123456
+    📝 示例：`/dlna-cast` `webdav` `add` `我的NAS` `http://192.168.1.100:5005/webdav` `admin` `123456`
 
-3️⃣ /dlna-cast webdav ls
-    列出所有已配置的WebDAV服务器
+3️⃣ `/dlna-cast` `webdav` `ls`
 
-4️⃣ /dlna-cast webdav select <序号>
+4️⃣ `/dlna-cast` `webdav` `select` `<序号>`
     选中指定序号的WebDAV服务器（用于后续浏览操作）
-    示例：/dlna-cast webdav select 1
+    📝 示例：`/dlna-cast` `webdav` `select` `1`
 
-5️⃣ /dlna-cast webdav rm <序号>
+5️⃣ `/dlna-cast` `webdav` `rm` `<序号>`
     删除指定序号的WebDAV服务器配置
-    示例：/dlna-cast webdav rm 2
+    📝 示例：`/dlna-cast` `webdav` `rm` `2`
 
-6️⃣ /dlna-cast webdav browse [路径]
-    浏览当前选中WebDAV服务器的资源，默认根目录
-    示例：/dlna-cast webdav browse /movies
-        {selected_info}
-📝 路径使用说明：
-1. 如果路径包含空格，必须使用引号包裹：
-   ✅ 正确：/dlna-cast webdav browse '/天翼云盘/凡人修仙传 1-124集'
-   ✅ 正确：/dlna-cast webdav browse "/天翼云盘/凡人修仙传 1-124集"
-   ❌ 错误：/dlna-cast webdav browse /天翼云盘/凡人修仙传 1-124集
+6️⃣ `/dlna-cast` `webdav` `browse` [路径]
+    浏览当前选中服务器的资源（默认根目录）
+    📝 示例：`/dlna-cast` `webdav` `browse` `/movies`
 
-2. 浏览上级目录：
-   /dlna-cast webdav browse '..'
+{'-'*40}
+### 📌 路径使用说明：
 
-3. 浏览根目录：
-   /dlna-cast webdav browse '/'
-   /dlna-cast webdav browse
+1️⃣ 简单路径（无空格）：
+   ✅ `/dlna-cast` `webdav` `browse` `/movies/action`
 
-4. 播放视频（路径包含空格时同样需要用引号）：
-   /dlna-cast play '/天翼云盘/凡人修仙传 1-124集/第001集.mp4'
+2️⃣ 包含空格的路径（无需引号！）：
+   ✅ `/dlna-cast` `webdav` `browse` `/天翼云盘/凡人修仙传 1-124集`
+
+3️⃣ 特殊路径：
+   • 根目录：`/dlna-cast` `webdav` `browse` `/`
+   • 上级目录：`/dlna-cast` `webdav` `browse` `..`
+
+{'-'*40}
+### 🎯 常用操作示例：
+
+1. 添加服务器后自动选中，直接浏览：
+   `/dlna-cast` `webdav` `browse` `/`
+
+2. 进入子目录（直接输入完整路径）：
+   `/dlna-cast` `webdav` `browse` `/天翼云盘/凡人修仙传 1-124集`
+
+3. 返回上级：
+   `/dlna-cast` `webdav` `browse` `..`
+
+4. 播放视频（使用完整路径）：
+   `/dlna-cast` `play` `/天翼云盘/凡人修仙传 1-124集/第001集.mp4`
+
 {selected_info}
     """
         yield event.plain_result(help_text.strip())
@@ -211,7 +223,7 @@ class MyPlugin(Star):
                 result += f"\nURL: {config['url']}"
                 result += f"\n用户名: {config.get('username', '无')}"
                 result += "\n\n💡 现在可以使用以下命令："
-                result += "\n• /dlna-cast webdav browse [路径] - 浏览资源"
+                result += "\n• `/dlna-cast` `webdav` `browse` [路径] - 浏览资源"
                 result += "\n• /dlna-cast webdav rm <序号> - 删除配置"
             else:
                 result = f"❌ {message}"
@@ -264,24 +276,31 @@ class MyPlugin(Star):
 
         # 获取指令后的路径，指令后的内容全部作为 path，空格也算，无需引号引起来
         path = event.message_str.replace(f"{COMMAND_DLNA_CAST} webdav browse ", "", 1)
-        logger.info(f"触发 /dlna-cast webdav browse 指令, path: {path}")
+        logger.info(f"触发 `/dlna-cast` `webdav` `browse` 指令, 原始路径: {path}")
         params_dict = {'path': path}
 
         try:
             # 处理路径参数
             browse_path = path.strip()
 
-            # 如果路径被引号包裹，移除引号
-            if (browse_path.startswith("'") and browse_path.endswith("'")) or \
-                    (browse_path.startswith('"') and browse_path.endswith('"')):
-                browse_path = browse_path[1:-1]
+            # 如果路径为空，默认为根目录
+            if not browse_path:
+                browse_path = "/"
+                logger.info("路径为空，使用根目录")
+            else:
+                # 如果路径被引号包裹，移除引号（兼容用户习惯）
+                if (browse_path.startswith("'") and browse_path.endswith("'")) or \
+                        (browse_path.startswith('"') and browse_path.endswith('"')):
+                    browse_path = browse_path[1:-1]
+                    logger.info(f"移除引号后: {browse_path}")
 
             # 确保路径格式正确
             if not browse_path.startswith('/'):
                 browse_path = '/' + browse_path
 
-            logger.info(f"处理后的浏览路径: {browse_path}")
+            logger.info(f"最终浏览路径: {browse_path}")
 
+            # 调用管理器浏览路径
             success, message, items, selected_config = self.webdav_manager.browse_path(browse_path)
 
             if not success:
@@ -289,10 +308,18 @@ class MyPlugin(Star):
                 if "请先选中" in message:
                     _, _, configs = self.webdav_manager.get_configs_list()
                     if configs:
-                        result = f"❌ {message}\n\n可用服务器：\n{self.webdav_manager.format_config_list(configs)}"
-                        yield event.plain_result(result)
+                        result = f"❌ {message}\n\n📋 可用服务器：\n{self.webdav_manager.format_config_list(configs)}"
+                        result += "\n\n💡 使用 /dlna-cast webdav select <序号> 选中一个服务器"
                     else:
-                        yield event.plain_result(f"❌ {message}")
+                        result = f"❌ {message}\n\n💡 使用 /dlna-cast webdav add 添加服务器"
+                    yield event.plain_result(result)
+                elif "404" in message or "Not Found" in message:
+                    result = f"❌ 路径不存在：'{browse_path}'"
+                    # 尝试提供父路径提示
+                    parent_path = os.path.dirname(browse_path.rstrip('/'))
+                    if parent_path and parent_path != browse_path:
+                        result += f"\n\n💡 尝试浏览上级目录：`/dlna-cast` `webdav` `browse` '{parent_path}'"
+                    yield event.plain_result(result)
                 else:
                     yield event.plain_result(f"❌ {message}")
                 return
@@ -302,9 +329,10 @@ class MyPlugin(Star):
                 # 尝试列出上级目录作为提示
                 parent_path = os.path.dirname(browse_path.rstrip('/'))
                 if parent_path and parent_path != browse_path:
-                    result += f"\n\n💡 尝试浏览上级目录：/dlna-cast webdav browse '{parent_path}'"
+                    result += f"\n\n💡 尝试浏览上级目录：`/dlna-cast` `webdav` `browse` '{parent_path}'"
             else:
-                result = f"📁 WebDAV【{selected_config['name']}】- 路径: {browse_path}\n\n"
+                result = f"📁 WebDAV【{selected_config['name']}】- 当前路径: {browse_path}\n"
+                result += "=" * 40 + "\n\n"
 
                 # 分类显示目录和文件
                 dirs = [item for item in items if item.is_dir]
@@ -314,10 +342,8 @@ class MyPlugin(Star):
                     result += "📂 目录：\n"
                     for i, d in enumerate(dirs, 1):
                         # 如果目录名包含空格，提示需要使用引号
-                        if ' ' in d.name:
-                            result += f"  {i}. 📁 {d.name} (⚠️ 包含空格，进入请用引号包裹)\n"
-                        else:
-                            result += f"  {i}. 📁 {d.name}\n"
+                        result += f"  {i}. 📁 {d.name}\n"
+                        result += f"     进入: `/dlna-cast` `webdav` `browse` `{browse_path.rstrip('/')}/{d.name}`\n"
                     result += "\n"
 
                 if files:
@@ -336,20 +362,31 @@ class MyPlugin(Star):
 
                         # 如果文件名包含空格，提示需要使用引号
                         if ' ' in f.name:
-                            result += f"  {i}. 🎥 {f.name} ({size_str}) (⚠️ 包含空格，播放请用引号包裹)\n"
+                            result += f"  {i}. 🎥 {f.name} ({size_str}) (⚠️ 包含空格)\n"
+                            result += f"     播放: /dlna-cast play '{browse_path.rstrip('/')}/{f.name}'\n"
                         else:
                             result += f"  {i}. 🎥 {f.name} ({size_str})\n"
+                            result += f"     播放: /dlna-cast play {browse_path.rstrip('/')}/{f.name}\n"
 
-                result += f"\n💡 共 {len(dirs)} 个目录，{len(files)} 个视频文件"
-                result += "\n\n📝 使用说明："
-                result += "\n• 进入子目录：/dlna-cast webdav browse '子目录名'"
-                result += "\n• 返回上级：/dlna-cast webdav browse '..'"
-                result += "\n• 播放视频：/dlna-cast play '文件名'"
-                result += "\n\n⚠️ 如果路径包含空格，请务必使用单引号或双引号包裹"
+                result += f"\n💡 统计: {len(dirs)} 个目录，{len(files)} 个视频文件"
+
+                # 添加导航提示
+                result += "\n\n📝 导航提示："
+                if browse_path != '/':
+                    result += f"\n• 返回上级: `/dlna-cast` `webdav` `browse` '{os.path.dirname(browse_path)}'"
+                result += "\n• 返回根目录: `/dlna-cast` `webdav` `browse` /"
+                result += "\n• 查看所有服务器: /dlna-cast webdav ls"
+
+                # 添加播放提示
+                if files:
+                    result += "\n\n🎯 播放提示："
+                    result += "\n• 播放视频: /dlna-cast play '完整路径'"
+                    result += "\n• 暂停: /dlna-cast pause"
+                    result += "\n• 继续: /dlna-cast replay"
 
         except Exception as e:
             logger.error(f"webdav_browse 异常: {e}")
-            result = f"❌ 浏览失败: {str(e)}\n\n💡 如果路径包含空格，请使用引号包裹，例如：\n/dlna-cast webdav browse '/天翼云盘/凡人修仙传 1-124集'"
+            result = f"❌ 浏览失败: {str(e)}"
 
         self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
         yield event.plain_result(result)
