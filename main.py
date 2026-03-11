@@ -16,7 +16,7 @@ class MyPlugin(Star):
         # 获取当前插件所在目录
         self.plugin_dir = os.path.dirname(os.path.abspath(__file__))
         # 初始化数据库
-        db_path = os.path.join(self.plugin_dir, 'data', 'plugin_messages.db')
+        db_path = os.path.join(self.plugin_dir, 'data/plugin_data', 'data.db')
         self.db = DatabaseManager(db_path)
         logger.info(f"数据库初始化成功: {db_path}")
 
