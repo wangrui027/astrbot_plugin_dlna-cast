@@ -4,7 +4,7 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger # 使用 astrbot 提供的 logger 接口
 
-COMMAND_DLNA_CAST= "dlna-cast"
+COMMAND_DLNA_CAST = "dlna-cast"
 
 class MyPlugin(Star):
     def __init__(self, context: Context):
