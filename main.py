@@ -117,7 +117,23 @@ class MyPlugin(Star):
     浏览当前选中WebDAV服务器的资源，默认根目录
     示例：/dlna-cast webdav browse /movies
         {selected_info}
-        """
+📝 路径使用说明：
+1. 如果路径包含空格，必须使用引号包裹：
+   ✅ 正确：/dlna-cast webdav browse '/天翼云盘/凡人修仙传 1-124集'
+   ✅ 正确：/dlna-cast webdav browse "/天翼云盘/凡人修仙传 1-124集"
+   ❌ 错误：/dlna-cast webdav browse /天翼云盘/凡人修仙传 1-124集
+
+2. 浏览上级目录：
+   /dlna-cast webdav browse '..'
+
+3. 浏览根目录：
+   /dlna-cast webdav browse '/'
+   /dlna-cast webdav browse
+
+4. 播放视频（路径包含空格时同样需要用引号）：
+   /dlna-cast play '/天翼云盘/凡人修仙传 1-124集/第001集.mp4'
+{selected_info}
+    """
         yield event.plain_result(help_text.strip())
 
     @webdav.command("add")
@@ -243,29 +259,51 @@ class MyPlugin(Star):
         yield event.plain_result(result)
 
     @webdav.command("browse")
-    async def webdav_browse(self, event: AstrMessageEvent, path: str = "/"):
+    async def webdav_browse(self, event: AstrMessageEvent):
         """webdav 资源浏览"""
-        logger.info(f"触发 /dlna-cast webdav browse 指令, path: {path}")
 
+        path = event.message_str.replace(f"{COMMAND_DLNA_CAST} webdav browse ", "", 1)
+        logger.info(f"触发 /dlna-cast webdav browse 指令, path: {path}")
         params_dict = {'path': path}
 
         try:
-            success, message, items, selected_config = self.webdav_manager.browse_path(path)
+            # 处理路径参数
+            browse_path = path.strip()
+
+            # 如果路径被引号包裹，移除引号
+            if (browse_path.startswith("'") and browse_path.endswith("'")) or \
+                    (browse_path.startswith('"') and browse_path.endswith('"')):
+                browse_path = browse_path[1:-1]
+
+            # 确保路径格式正确
+            if not browse_path.startswith('/'):
+                browse_path = '/' + browse_path
+
+            logger.info(f"处理后的浏览路径: {browse_path}")
+
+            success, message, items, selected_config = self.webdav_manager.browse_path(browse_path)
 
             if not success:
-                yield event.plain_result(f"❌ {message}")
-                # 如果没有选中，提示可用服务器
+                # 提供更友好的错误提示
                 if "请先选中" in message:
                     _, _, configs = self.webdav_manager.get_configs_list()
                     if configs:
                         result = f"❌ {message}\n\n可用服务器：\n{self.webdav_manager.format_config_list(configs)}"
                         yield event.plain_result(result)
+                    else:
+                        yield event.plain_result(f"❌ {message}")
+                else:
+                    yield event.plain_result(f"❌ {message}")
                 return
 
             if not items:
-                result = f"📁 路径 '{path or '/'}' 下没有找到可浏览的内容"
+                result = f"📁 路径 '{browse_path}' 下没有找到可浏览的内容"
+                # 尝试列出上级目录作为提示
+                parent_path = os.path.dirname(browse_path.rstrip('/'))
+                if parent_path and parent_path != browse_path:
+                    result += f"\n\n💡 尝试浏览上级目录：/dlna-cast webdav browse '{parent_path}'"
             else:
-                result = f"📁 WebDAV【{selected_config['name']}】- 路径: /{path or ''}\n\n"
+                result = f"📁 WebDAV【{selected_config['name']}】- 路径: {browse_path}\n\n"
 
                 # 分类显示目录和文件
                 dirs = [item for item in items if item.is_dir]
@@ -274,7 +312,11 @@ class MyPlugin(Star):
                 if dirs:
                     result += "📂 目录：\n"
                     for i, d in enumerate(dirs, 1):
-                        result += f"  {i}. 📁 {d.name}\n"
+                        # 如果目录名包含空格，提示需要使用引号
+                        if ' ' in d.name:
+                            result += f"  {i}. 📁 {d.name} (⚠️ 包含空格，进入请用引号包裹)\n"
+                        else:
+                            result += f"  {i}. 📁 {d.name}\n"
                     result += "\n"
 
                 if files:
@@ -291,15 +333,22 @@ class MyPlugin(Star):
                         else:
                             size_str = f"{size / 1024 / 1024 / 1024:.2f}GB"
 
-                        result += f"  {i}. 🎥 {f.name} ({size_str})\n"
+                        # 如果文件名包含空格，提示需要使用引号
+                        if ' ' in f.name:
+                            result += f"  {i}. 🎥 {f.name} ({size_str}) (⚠️ 包含空格，播放请用引号包裹)\n"
+                        else:
+                            result += f"  {i}. 🎥 {f.name} ({size_str})\n"
 
                 result += f"\n💡 共 {len(dirs)} 个目录，{len(files)} 个视频文件"
-                result += "\n\n使用 /dlna-cast play <文件名> 播放视频"
-                result += "\n使用 /dlna-cast webdav browse <子目录名> 进入子目录"
+                result += "\n\n📝 使用说明："
+                result += "\n• 进入子目录：/dlna-cast webdav browse '子目录名'"
+                result += "\n• 返回上级：/dlna-cast webdav browse '..'"
+                result += "\n• 播放视频：/dlna-cast play '文件名'"
+                result += "\n\n⚠️ 如果路径包含空格，请务必使用单引号或双引号包裹"
 
         except Exception as e:
             logger.error(f"webdav_browse 异常: {e}")
-            result = f"❌ 浏览失败: {str(e)}"
+            result = f"❌ 浏览失败: {str(e)}\n\n💡 如果路径包含空格，请使用引号包裹，例如：\n/dlna-cast webdav browse '/天翼云盘/凡人修仙传 1-124集'"
 
         self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
         yield event.plain_result(result)

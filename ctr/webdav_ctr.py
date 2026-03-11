@@ -341,6 +341,9 @@ class WebDAVManager:
         """
         浏览路径
 
+        Args:
+            path: 浏览路径，支持相对路径和绝对路径
+
         Returns:
             (是否成功, 消息, 文件列表, 当前选中的配置)
         """
@@ -349,6 +352,23 @@ class WebDAVManager:
             config_dict = self._get_selected_config()
             if not config_dict:
                 return False, "请先使用 /dlna-cast webdav select <序号> 选中一个服务器", None, None
+
+            logger.info(f"browse_path, path: {path}")
+
+            # 处理特殊路径
+            if path == '..':
+                # 返回上级目录
+                path = '/'
+            elif path and not path.startswith('/'):
+                # 相对路径转换为绝对路径
+                path = '/' + path
+
+            # URL编码处理（但保留空格等字符）
+            import urllib.parse
+            # 先对路径进行URL编码，但保留斜杠
+            encoded_path = '/'.join([urllib.parse.quote(part) for part in path.split('/')])
+
+            logger.info(f"浏览路径: {path}, 编码后: {encoded_path}")
 
             # 创建配置对象
             config = WebDAVConfig(
@@ -376,6 +396,7 @@ class WebDAVManager:
             return True, "浏览成功", items, config_dict
 
         except Exception as e:
+            logger.error(f"浏览失败: {e}")
             return False, f"浏览失败: {str(e)}", None, None
 
     def get_current_selected(self) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
