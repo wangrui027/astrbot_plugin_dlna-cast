@@ -1,16 +1,24 @@
+import inspect
 import os
 
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
-from astrbot.api.star import Context, Star, register
-from astrbot.api import logger # 使用 astrbot 提供的 logger 接口
+from astrbot.api import logger  # 使用 astrbot 提供的 logger 接口
+from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api.star import Context, Star
+
+from ctr.db_utils import DatabaseManager
 
 COMMAND_DLNA_CAST = "dlna-cast"
+
 
 class MyPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
         # 获取当前插件所在目录
         self.plugin_dir = os.path.dirname(os.path.abspath(__file__))
+        # 初始化数据库
+        db_path = os.path.join(self.plugin_dir, 'data', 'plugin_messages.db')
+        self.db = DatabaseManager(db_path)
+        logger.info(f"数据库初始化成功: {db_path}")
 
     @filter.command_group(COMMAND_DLNA_CAST)
     def dlna_cast(self, event: AstrMessageEvent):
@@ -20,6 +28,9 @@ class MyPlugin(Star):
     async def dlna_cast_help(self, event: AstrMessageEvent):
         """显示帮助信息"""
         logger.info("触发 /dlna-cast help 指令")
+
+        self.db.log_message(event, inspect.currentframe().f_code.co_name)
+
         help_path = os.path.join(self.plugin_dir, 'help', 'base_help.md')
         try:
             with open(help_path, 'r', encoding='utf-8') as file:
@@ -40,10 +51,12 @@ class MyPlugin(Star):
         yield event.plain_result(f"webdav 指令帮助")
 
     @webdav.command("add")
-    async def webdav_add(self, event: AstrMessageEvent, name: str, url: str, username: str = None, password: str = None):
+    async def webdav_add(self, event: AstrMessageEvent, name: str, url: str, username: str = None,
+                         password: str = None):
         """webdav 服务器添加"""
         # TODO
-        yield event.plain_result(f"webdav 服务器添加, name: {name}, url: {url}, username: {username}, password: {password}")
+        yield event.plain_result(
+            f"webdav 服务器添加, name: {name}, url: {url}, username: {username}, password: {password}")
 
     @webdav.command("ls")
     async def webdav_ls(self, event: AstrMessageEvent):
