@@ -7,6 +7,9 @@ from contextlib import contextmanager
 from datetime import datetime
 from queue import Queue
 
+import requests
+from astrbot import logger
+
 
 class ConnectionPool:
     """SQLite 连接池"""
@@ -50,8 +53,7 @@ class ConnectionPool:
                 function_name TEXT NOT NULL,
                 event_info TEXT,
                 params TEXT,
-                reply_content TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                reply_content TEXT
             )
         ''')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_id ON session_message(session_id)')
@@ -153,9 +155,7 @@ class DatabaseManager:
             event_info = self._extract_event_info(event)
 
             # 对参数进行脱敏处理
-            if params and isinstance(params, dict):
-                params = self._mask_sensitive_params(params)
-
+            params = self._mask_sensitive_params(params)
             with self.pool.get_connection() as conn:
                 cursor = conn.cursor()
                 timestamp = self.get_shanghai_time()
@@ -172,7 +172,7 @@ class DatabaseManager:
                     self._safe_json_dumps(params),
                     reply_content
                 ))
-
+                logger.info(f"log_message: function_name={function_name}, params={params} reply_content={reply_content}")
                 return cursor.lastrowid
         except Exception as e:
             # 打印错误但不要抛出，避免影响主流程
@@ -181,44 +181,19 @@ class DatabaseManager:
             return None
 
     def _mask_sensitive_params(self, params):
-        """
-        对敏感参数进行脱敏处理（不区分大小写）
-
-        敏感字段列表：password, token, secret, key, auth
-
-        Args:
-            params: 原始参数字典
-
-        Returns:
-            dict: 脱敏后的参数字典
-        """
+        """对敏感参数进行脱敏处理"""
         if not params or not isinstance(params, dict):
             return params
 
-        # 敏感字段列表（全小写用于匹配）
         sensitive_fields = {'password', 'token', 'secret', 'key', 'auth'}
-
-        # 创建新字典避免修改原数据
         masked_params = {}
 
         for key, value in params.items():
-            # 检查字段名是否包含敏感词（不区分大小写）
             key_lower = key.lower()
             is_sensitive = any(sensitive in key_lower for sensitive in sensitive_fields)
-
             if is_sensitive and value is not None:
-                # 对敏感值进行脱敏
-                if isinstance(value, str):
-                    if len(value) <= 4:
-                        masked_params[key] = '****'
-                    else:
-                        # 保留前2位和后2位，中间用****代替
-                        masked_params[key] = value[:2] + '****' + value[-2:]
-                else:
-                    # 非字符串类型直接替换为固定掩码
-                    masked_params[key] = '****'
+                masked_params[key] = '******'
             else:
-                # 非敏感字段，直接保留原值
                 masked_params[key] = value
 
         return masked_params

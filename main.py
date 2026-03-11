@@ -5,7 +5,7 @@ from astrbot.api import logger  # 使用 astrbot 提供的 logger 接口
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star
 
-from ctr.db_utils import DatabaseManager
+from .ctr.db_utils import DatabaseManager
 
 COMMAND_DLNA_CAST = "dlna-cast"
 
@@ -98,9 +98,9 @@ class MyPlugin(Star):
             'username': username,
             'password': password
         }
-        result = f"webdav 服务器添加, name: {name}, url: {url}, username: {username}, password: {password}"
-        self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
         # TODO
+        result = f"webdav服务【{name}】已添加"
+        self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
         yield event.plain_result(result)
 
     @webdav.command("ls")
