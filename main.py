@@ -6,6 +6,7 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star
 
 from .ctr.db_utils import DatabaseManager
+from .ctr.webdav_ctr import WebDAVManager, WebDAVConfig
 
 COMMAND_DLNA_CAST = "dlna-cast"
 
@@ -92,14 +93,39 @@ class MyPlugin(Star):
                          password: str = None):
         """webdav 服务器添加"""
         logger.info("触发 /dlna-cast webdav add 指令")
+
+        # 记录参数
         params_dict = {
             'name': name,
             'url': url,
             'username': username,
             'password': password
         }
-        # TODO
-        result = f"webdav服务【{name}】已添加"
+        try:
+            # 创建配置对象
+            config = WebDAVConfig(
+                name=name,
+                url=url,
+                username=username,
+                password=password
+            )
+
+            # 创建管理器并添加配置
+            manager = WebDAVManager(self.db)
+            success, message = manager.add_config(config)
+
+            if success:
+                result = f"✅ WebDAV服务【{name}】添加成功"
+                result += f"\n服务器: {config.url}"
+                result += f"\n用户名: {config.username}"
+            else:
+                result = f"❌ WebDAV服务添加失败: {message}"
+
+        except Exception as e:
+            logger.error(f"webdav_add 异常: {e}")
+            result = f"❌ 添加过程发生异常: {str(e)}"
+
+        # 记录日志并返回结果
         self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
         yield event.plain_result(result)
 

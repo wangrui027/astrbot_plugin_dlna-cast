@@ -58,6 +58,22 @@ class ConnectionPool:
         ''')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_session_id ON session_message(session_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON session_message(timestamp)')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS webdav_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                url TEXT NOT NULL,
+                username TEXT,
+                password TEXT,
+                host TEXT NOT NULL,
+                port INTEGER NOT NULL,
+                path TEXT NOT NULL,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL
+            )
+        ''')
+
         conn.commit()
 
     @contextmanager
