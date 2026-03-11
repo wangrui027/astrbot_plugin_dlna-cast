@@ -1,19 +1,163 @@
+import os
+
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger # 使用 astrbot 提供的 logger 接口
 
+COMMAND_DLNA_CAST= "dlna-cast"
+
 class MyPlugin(Star):
     def __init__(self, context: Context):
         super().__init__(context)
+        # 获取当前插件所在目录
+        self.plugin_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("dlna-cast")
-    async def dlna_cast(self, event: AstrMessageEvent, text: str):
-        '''这是一个 hello world 指令''' # 这是 handler 的描述，将会被解析方便用户了解插件内容。非常建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 获取消息的纯文本内容
-        logger.info("触发 dlna_cast 指令!")
-        yield event.plain_result(f"Hello, {user_name}, 我是 dlna-cast, 我可以把你 webdav 中的电影推送到 bilibili TV 版哟!") # 发送一条纯文本消息
+    @filter.command_group(COMMAND_DLNA_CAST)
+    def dlna_cast(self, event: AstrMessageEvent):
+        pass
+
+    @dlna_cast.command("help")
+    async def dlna_cast_help(self, event: AstrMessageEvent):
+        """显示帮助信息"""
+        logger.info("触发 /dlna-cast help 指令")
+        help_path = os.path.join(self.plugin_dir, 'help', 'base_help.md')
+        try:
+            with open(help_path, 'r', encoding='utf-8') as file:
+                help_md = file.read()
+            yield event.plain_result(help_md)
+        except FileNotFoundError:
+            logger.error(f"帮助文件未找到: {help_path}")
+            yield event.plain_result("帮助文件不存在，请检查插件安装")
+
+    @dlna_cast.group("dlna")
+    def dlna(self, event: AstrMessageEvent):
+        pass
+
+    @dlna.command("help")
+    async def dlna_help(self, event: AstrMessageEvent):
+        """dlna 指令帮助"""
+        # TODO
+        yield event.plain_result(f"dlna 指令帮助")
+
+    @dlna.command("scan")
+    async def dlan_scan(self, event: AstrMessageEvent):
+        """dlna 设备扫描"""
+        # TODO
+        yield event.plain_result(f"dlna 扫描")
+
+    @dlna.command("select")
+    async def dlan_select(self, event: AstrMessageEvent, index: int):
+        """dlna 设备选中"""
+        # TODO
+        yield event.plain_result(f"dlna 设备选中, index: {index}")
+
+    @dlna.command("ls")
+    async def dlan_ls(self, event: AstrMessageEvent):
+        """dlna 设备列表查看"""
+        # TODO
+        yield event.plain_result(f"dlna 列表查看")
+
+    @dlna.command("rm")
+    async def dlan_remove(self, event: AstrMessageEvent, index: int):
+        """dlna 设备删除"""
+        # TODO
+        yield event.plain_result(f"dlna 设备删除, index: {index}")
+
+    @dlna_cast.group("webdav")
+    def webdav(self, event: AstrMessageEvent):
+        pass
+
+    @webdav.command("help")
+    async def webdav_help(self, event: AstrMessageEvent):
+        """webdav 指令帮助"""
+        # TODO
+        yield event.plain_result(f"webdav 指令帮助")
+
+    @webdav.command("add")
+    async def webdav_add(self, event: AstrMessageEvent, text: str):
+        """webdav 服务器添加"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器添加, text: {text}")
+
+    @webdav.command("select")
+    async def webdav_select(self, event: AstrMessageEvent, index: int):
+        """webdav 服务器选中"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器选中, index: {index}")
+
+    @webdav.command("ls")
+    async def webdav_ls(self, event: AstrMessageEvent):
+        """webdav 服务器列表查看"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器列表查看")
+
+    @webdav.command("rm")
+    async def webdav_rm(self, event: AstrMessageEvent, index: int):
+        """webdav 服务器删除"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器删除, index: {index}")
+
+    @webdav.command("browse")
+    async def webdav_browse(self, event: AstrMessageEvent, path: str = "/"):
+        """webdav 资源浏览"""
+        # TODO
+        yield event.plain_result(f"webdav 资源浏览, path: {path}")
+
+    @dlna_cast.command("play")
+    async def dlna_cast_play(self, event: AstrMessageEvent, text: str):
+        """视频播放"""
+        logger.debug("触发 /dlna-cast play 指令")
+        # TODO: 调用DLNA播放接口
+        yield event.plain_result("play 指令已成功下达")
+
+    @dlna_cast.command("replay")
+    async def dlna_cast_replay(self, event: AstrMessageEvent):
+        """视频重播"""
+        logger.debug("触发 /dlna-cast replay 指令")
+        # TODO: 调用DLNA播放接口
+        yield event.plain_result("replay 指令已成功下达")
+
+    @dlna_cast.command("pause")
+    async def dlna_cast_pause(self, event: AstrMessageEvent):
+        """视频暂停"""
+        logger.debug("触发 /dlna-cast pause 指令")
+        # TODO: 调用DLNA暂停接口
+        yield event.plain_result("pause 指令已成功下达")
+
+    @dlna_cast.command("stop")
+    async def dlna_cast_stop(self, event: AstrMessageEvent):
+        """视频停止"""
+        logger.debug("触发 /dlna-cast stop 指令")
+        # TODO: 调用DLNA停止接口
+        yield event.plain_result("stop 指令已成功下达")
+
+    @dlna_cast.command("seek")
+    async def dlna_cast_seek(self, event: AstrMessageEvent, position: str):
+        """视频播放跳转"""
+        logger.debug(f"触发 /dlna-cast seek 指令，目标位置: {position}")
+        # TODO: 调用DLNA跳转接口
+        yield event.plain_result(f"seek 指令已成功下达，目标位置: {position}")
+
+    @dlna_cast.command("status")
+    async def dlna_cast_status(self, event: AstrMessageEvent):
+        """播放状态查询"""
+        logger.debug(f"触发 /dlna-cast status 指令")
+        # TODO: 调用DLNA跳转接口
+        yield event.plain_result(f"status 指令已成功下达")
+
+    @dlna_cast.command("history")
+    async def dlna_cast_history(self, event: AstrMessageEvent):
+        """播放历史查询"""
+        logger.debug(f"触发 /dlna-cast history 指令")
+        # TODO: 返回播放历史信息
+        yield event.plain_result(f"history 指令已成功下达")
+
+    @dlna_cast.command("say")
+    async def dlna_cast_say(self, event: AstrMessageEvent, text: str):
+        """自然语言文字操控，详见 /dlna-cast help """
+        logger.debug(f"触发 /dlna-cast say 指令，text: {text}")
+        # TODO: 调用DLNA控制接口
+        yield event.plain_result(f"say 指令已成功下达，text: {text}")
 
     async def terminate(self):
-        '''可选择实现 terminate 函数，当插件被卸载/停用时会调用。'''
+        """可选择实现 terminate 函数，当插件被卸载/停用时会调用。"""
