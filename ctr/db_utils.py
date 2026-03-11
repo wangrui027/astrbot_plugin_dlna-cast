@@ -1,12 +1,11 @@
-import sqlite3
 import json
+import os
+import sqlite3
 import threading
 import traceback
-from queue import Queue
 from contextlib import contextmanager
 from datetime import datetime
-import pytz
-import os
+from queue import Queue
 
 
 class ConnectionPool:
@@ -111,11 +110,10 @@ class DatabaseManager:
 
     def __init__(self, db_path='data/messages.db', max_connections=10):
         self.pool = ConnectionPool(db_path, max_connections)
-        self._tz = pytz.timezone('Asia/Shanghai')
 
     def get_shanghai_time(self):
-        """获取上海时区时间"""
-        return datetime.now(self._tz).strftime('%Y-%m-%d %H:%M:%S')
+        """获取本地时间（代替上海时区）"""
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     def _extract_event_info(self, event):
         """从事件对象中提取基本信息"""
