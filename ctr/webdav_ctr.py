@@ -337,38 +337,61 @@ class WebDAVManager:
         except Exception as e:
             return False, f"删除操作失败: {str(e)}", None
 
-    def browse_path(self, path: str = "/") -> Tuple[bool, str, Optional[List[FileInfo]], Optional[Dict[str, Any]]]:
+    def browse_path(self, path: str = "/", current_path: str = None) -> Tuple[
+        bool, str, Optional[List[FileInfo]], Optional[Dict[str, Any]], Optional[str]]:
         """
         浏览路径
 
         Args:
             path: 浏览路径，支持相对路径和绝对路径
+            current_path: 当前所在的路径（用于处理相对路径）
 
         Returns:
-            (是否成功, 消息, 文件列表, 当前选中的配置)
+            (是否成功, 消息, 文件列表, 当前选中的配置, 新的当前路径)
         """
         try:
             # 获取当前选中的配置
             config_dict = self._get_selected_config()
             if not config_dict:
-                return False, "请先使用 /dlna-cast webdav select <序号> 选中一个服务器", None, None
+                return False, "请先使用 /dlna-cast webdav select <序号> 选中一个服务器", None, None, None
 
-            logger.info(f"browse_path, path: {path}")
+            logger.info(f"browse_path, 请求路径: {path}, 当前路径: {current_path}")
 
             # 处理特殊路径
             if path == '..':
-                # 返回上级目录
-                path = '/'
-            elif path and not path.startswith('/'):
-                # 相对路径转换为绝对路径
+                if current_path and current_path != '/':
+                    # 返回上级目录
+                    import os
+                    path = os.path.dirname(current_path.rstrip('/'))
+                    if not path:
+                        path = '/'
+                    logger.info(f"返回上级目录: {path}")
+                else:
+                    path = '/'
+            elif path == '.' or not path:
+                # 当前目录
+                path = current_path if current_path else '/'
+            elif not path.startswith('/'):
+                # 相对路径，基于当前路径拼接
+                if current_path and current_path != '/':
+                    path = current_path.rstrip('/') + '/' + path
+                else:
+                    path = '/' + path
+
+            # 规范化路径
+            import os
+            path = os.path.normpath(path).replace('\\', '/')
+            if not path.startswith('/'):
                 path = '/' + path
+
+            logger.info(f"规范化后的路径: {path}")
 
             # URL编码处理（但保留空格等字符）
             import urllib.parse
             # 先对路径进行URL编码，但保留斜杠
             encoded_path = '/'.join([urllib.parse.quote(part) for part in path.split('/')])
 
-            logger.info(f"浏览路径: {path}, 编码后: {encoded_path}")
+            logger.info(f"编码后路径: {encoded_path}")
 
             # 创建配置对象
             config = WebDAVConfig(
@@ -393,11 +416,11 @@ class WebDAVManager:
             # 浏览目录
             items = scanner.list_directory(path)
 
-            return True, "浏览成功", items, config_dict
+            return True, "浏览成功", items, config_dict, path
 
         except Exception as e:
             logger.error(f"浏览失败: {e}")
-            return False, f"浏览失败: {str(e)}", None, None
+            return False, f"浏览失败: {str(e)}", None, None, None
 
     def get_current_selected(self) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """

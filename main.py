@@ -294,14 +294,16 @@ class MyPlugin(Star):
                     browse_path = browse_path[1:-1]
                     logger.info(f"移除引号后: {browse_path}")
 
-            # 确保路径格式正确
-            if not browse_path.startswith('/'):
-                browse_path = '/' + browse_path
+            # 从会话中获取当前路径（需要实现会话存储）
+            # 这里简化处理，使用 event 的临时存储
+            current_path = getattr(event, '_current_webdav_path', '/')
+            logger.info(f"当前路径: {current_path}")
 
-            logger.info(f"最终浏览路径: {browse_path}")
-
-            # 调用管理器浏览路径
-            success, message, items, selected_config = self.webdav_manager.browse_path(browse_path)
+            # 调用管理器浏览路径，传入当前路径
+            success, message, items, selected_config, new_path = self.webdav_manager.browse_path(
+                browse_path,
+                current_path
+            )
 
             if not success:
                 # 提供更友好的错误提示
@@ -318,20 +320,24 @@ class MyPlugin(Star):
                     # 尝试提供父路径提示
                     parent_path = os.path.dirname(browse_path.rstrip('/'))
                     if parent_path and parent_path != browse_path:
-                        result += f"\n\n💡 尝试浏览上级目录：`/dlna-cast` `webdav` `browse` '{parent_path}'"
+                        result += f"\n\n💡 尝试浏览上级目录：`/dlna-cast` `webdav` `browse` `'{parent_path}'`"
                     yield event.plain_result(result)
                 else:
                     yield event.plain_result(f"❌ {message}")
                 return
 
+            # 保存新的当前路径到会话
+            event._current_webdav_path = new_path
+            logger.info(f"更新当前路径为: {new_path}")
+
             if not items:
-                result = f"📁 路径 '{browse_path}' 下没有找到可浏览的内容"
+                result = f"📁 路径 '{new_path}' 下没有找到可浏览的内容"
                 # 尝试列出上级目录作为提示
-                parent_path = os.path.dirname(browse_path.rstrip('/'))
-                if parent_path and parent_path != browse_path:
-                    result += f"\n\n💡 尝试浏览上级目录：`/dlna-cast` `webdav` `browse` '{parent_path}'"
+                parent_path = os.path.dirname(new_path.rstrip('/'))
+                if parent_path and parent_path != new_path:
+                    result += f"\n\n💡 尝试浏览上级目录：`/dlna-cast` `webdav` `browse` `'{parent_path}'`"
             else:
-                result = f"📁 WebDAV【{selected_config['name']}】- 当前路径: {browse_path}\n"
+                result = f"📁 WebDAV【{selected_config['name']}】- 当前路径: {new_path}\n"
                 result += "=" * 40 + "\n\n"
 
                 # 分类显示目录和文件
@@ -341,9 +347,9 @@ class MyPlugin(Star):
                 if dirs:
                     result += "📂 目录：\n"
                     for i, d in enumerate(dirs, 1):
-                        # 如果目录名包含空格，提示需要使用引号
                         result += f"  {i}. 📁 {d.name}\n"
-                        result += f"     进入: `/dlna-cast` `webdav` `browse` `{browse_path.rstrip('/')}/{d.name}`\n"
+                        # 生成进入子目录的命令
+                        result += f"     进入: `/dlna-cast` `webdav` `browse` `{new_path.rstrip('/')}/{d.name}`\n"
                     result += "\n"
 
                 if files:
@@ -360,29 +366,29 @@ class MyPlugin(Star):
                         else:
                             size_str = f"{size / 1024 / 1024 / 1024:.2f}GB"
 
-                        # 如果文件名包含空格，提示需要使用引号
+                        # 生成播放命令
                         if ' ' in f.name:
                             result += f"  {i}. 🎥 {f.name} ({size_str}) (⚠️ 包含空格)\n"
-                            result += f"     播放: /dlna-cast play '{browse_path.rstrip('/')}/{f.name}'\n"
+                            result += f"     播放: /dlna-cast play '{new_path.rstrip('/')}/{f.name}'\n"
                         else:
                             result += f"  {i}. 🎥 {f.name} ({size_str})\n"
-                            result += f"     播放: /dlna-cast play {browse_path.rstrip('/')}/{f.name}\n"
+                            result += f"     播放: /dlna-cast play {new_path.rstrip('/')}/{f.name}\n"
 
                 result += f"\n💡 统计: {len(dirs)} 个目录，{len(files)} 个视频文件"
 
                 # 添加导航提示
                 result += "\n\n📝 导航提示："
-                if browse_path != '/':
-                    result += f"\n• 返回上级: `/dlna-cast` `webdav` `browse` '{os.path.dirname(browse_path)}'"
-                result += "\n• 返回根目录: `/dlna-cast` `webdav` `browse` /"
-                result += "\n• 查看所有服务器: /dlna-cast webdav ls"
+                if new_path != '/':
+                    result += f"\n• 返回上级: `/dlna-cast` `webdav` `browse` `..`"
+                result += "\n• 返回根目录: `/dlna-cast` `webdav` `browse` `/`"
+                result += "\n• 查看所有服务器: `/dlna-cast` `webdav` `ls`"
 
                 # 添加播放提示
                 if files:
                     result += "\n\n🎯 播放提示："
-                    result += "\n• 播放视频: /dlna-cast play '完整路径'"
-                    result += "\n• 暂停: /dlna-cast pause"
-                    result += "\n• 继续: /dlna-cast replay"
+                    result += "\n• 播放视频: `/dlna-cast` `play` `完整路径`"
+                    result += "\n• 暂停: `/dlna-cast` `pause`"
+                    result += "\n• 继续: `/dlna-cast` `replay`"
 
         except Exception as e:
             logger.error(f"webdav_browse 异常: {e}")
