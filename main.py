@@ -29,6 +29,46 @@ class MyPlugin(Star):
             logger.error(f"帮助文件未找到: {help_path}")
             yield event.plain_result("帮助文件不存在，请检查插件安装")
 
+    @dlna_cast.group("webdav")
+    def webdav(self, event: AstrMessageEvent):
+        pass
+
+    @webdav.command("help")
+    async def webdav_help(self, event: AstrMessageEvent):
+        """webdav 指令帮助"""
+        # TODO
+        yield event.plain_result(f"webdav 指令帮助")
+
+    @webdav.command("add")
+    async def webdav_add(self, event: AstrMessageEvent, name: str, url: str, username: str = None, password: str = None):
+        """webdav 服务器添加"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器添加, name: {name}, url: {url}, username: {username}, password: {password}")
+
+    @webdav.command("ls")
+    async def webdav_ls(self, event: AstrMessageEvent):
+        """webdav 服务器列表查看"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器列表查看")
+
+    @webdav.command("select")
+    async def webdav_select(self, event: AstrMessageEvent, index: int):
+        """webdav 服务器选中"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器选中, index: {index}")
+
+    @webdav.command("rm")
+    async def webdav_rm(self, event: AstrMessageEvent, index: int):
+        """webdav 服务器删除"""
+        # TODO
+        yield event.plain_result(f"webdav 服务器删除, index: {index}")
+
+    @webdav.command("browse")
+    async def webdav_browse(self, event: AstrMessageEvent, path: str = "/"):
+        """webdav 资源浏览"""
+        # TODO
+        yield event.plain_result(f"webdav 资源浏览, path: {path}")
+
     @dlna_cast.group("dlna")
     def dlna(self, event: AstrMessageEvent):
         pass
@@ -45,63 +85,29 @@ class MyPlugin(Star):
         # TODO
         yield event.plain_result(f"dlna 扫描")
 
-    @dlna.command("select")
-    async def dlan_select(self, event: AstrMessageEvent, index: int):
-        """dlna 设备选中"""
-        # TODO
-        yield event.plain_result(f"dlna 设备选中, index: {index}")
-
     @dlna.command("ls")
     async def dlan_ls(self, event: AstrMessageEvent):
         """dlna 设备列表查看"""
         # TODO
         yield event.plain_result(f"dlna 列表查看")
 
+    @dlna.command("add")
+    async def dlan_add(self, event: AstrMessageEvent, index: int, name: str = None):
+        """dlna 设备添加"""
+        # TODO
+        yield event.plain_result(f"dlna 设备添加")
+
+    @dlna.command("select")
+    async def dlan_select(self, event: AstrMessageEvent, index: int):
+        """dlna 设备选中"""
+        # TODO
+        yield event.plain_result(f"dlna 设备选中, index: {index}")
+
     @dlna.command("rm")
     async def dlan_remove(self, event: AstrMessageEvent, index: int):
         """dlna 设备删除"""
         # TODO
         yield event.plain_result(f"dlna 设备删除, index: {index}")
-
-    @dlna_cast.group("webdav")
-    def webdav(self, event: AstrMessageEvent):
-        pass
-
-    @webdav.command("help")
-    async def webdav_help(self, event: AstrMessageEvent):
-        """webdav 指令帮助"""
-        # TODO
-        yield event.plain_result(f"webdav 指令帮助")
-
-    @webdav.command("add")
-    async def webdav_add(self, event: AstrMessageEvent, text: str):
-        """webdav 服务器添加"""
-        # TODO
-        yield event.plain_result(f"webdav 服务器添加, text: {text}")
-
-    @webdav.command("select")
-    async def webdav_select(self, event: AstrMessageEvent, index: int):
-        """webdav 服务器选中"""
-        # TODO
-        yield event.plain_result(f"webdav 服务器选中, index: {index}")
-
-    @webdav.command("ls")
-    async def webdav_ls(self, event: AstrMessageEvent):
-        """webdav 服务器列表查看"""
-        # TODO
-        yield event.plain_result(f"webdav 服务器列表查看")
-
-    @webdav.command("rm")
-    async def webdav_rm(self, event: AstrMessageEvent, index: int):
-        """webdav 服务器删除"""
-        # TODO
-        yield event.plain_result(f"webdav 服务器删除, index: {index}")
-
-    @webdav.command("browse")
-    async def webdav_browse(self, event: AstrMessageEvent, path: str = "/"):
-        """webdav 资源浏览"""
-        # TODO
-        yield event.plain_result(f"webdav 资源浏览, path: {path}")
 
     @dlna_cast.command("play")
     async def dlna_cast_play(self, event: AstrMessageEvent, text: str):
