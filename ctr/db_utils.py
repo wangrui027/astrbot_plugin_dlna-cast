@@ -152,6 +152,10 @@ class DatabaseManager:
             session_id = event.session_id if hasattr(event, 'session_id') else 'unknown'
             event_info = self._extract_event_info(event)
 
+            # 对参数进行脱敏处理
+            if params and isinstance(params, dict):
+                params = self._mask_sensitive_params(params)
+
             with self.pool.get_connection() as conn:
                 cursor = conn.cursor()
                 timestamp = self.get_shanghai_time()
@@ -176,58 +180,48 @@ class DatabaseManager:
             print(traceback.format_exc())
             return None
 
-    def log_scan_result(self, event, devices):
+    def _mask_sensitive_params(self, params):
         """
-        专门记录扫描结果的便捷方法
+        对敏感参数进行脱敏处理（不区分大小写）
+
+        敏感字段列表：password, token, secret, key, auth
 
         Args:
-            event: AstrMessageEvent 对象
-            devices: 扫描到的设备列表
-        """
-        params = {
-            'device_count': len(devices),
-            'devices': [{'name': d['name'], 'ip': d['ip']} for d in devices]
-        }
-        return self.log_message(event, 'dlan_scan', params=params)
+            params: 原始参数字典
 
-    def log_command_with_params(self, event, function_name, **kwargs):
+        Returns:
+            dict: 脱敏后的参数字典
         """
-        记录带参数的指令
+        if not params or not isinstance(params, dict):
+            return params
 
-        Args:
-            event: AstrMessageEvent 对象
-            function_name: 函数名称
-            **kwargs: 要记录的参数
-        """
-        # 过滤掉敏感信息（如密码）
-        filtered_params = {}
-        for key, value in kwargs.items():
-            if 'password' in key.lower() or 'token' in key.lower():
-                filtered_params[key] = '***'
+        # 敏感字段列表（全小写用于匹配）
+        sensitive_fields = {'password', 'token', 'secret', 'key', 'auth'}
+
+        # 创建新字典避免修改原数据
+        masked_params = {}
+
+        for key, value in params.items():
+            # 检查字段名是否包含敏感词（不区分大小写）
+            key_lower = key.lower()
+            is_sensitive = any(sensitive in key_lower for sensitive in sensitive_fields)
+
+            if is_sensitive and value is not None:
+                # 对敏感值进行脱敏
+                if isinstance(value, str):
+                    if len(value) <= 4:
+                        masked_params[key] = '****'
+                    else:
+                        # 保留前2位和后2位，中间用****代替
+                        masked_params[key] = value[:2] + '****' + value[-2:]
+                else:
+                    # 非字符串类型直接替换为固定掩码
+                    masked_params[key] = '****'
             else:
-                filtered_params[key] = value
+                # 非敏感字段，直接保留原值
+                masked_params[key] = value
 
-        return self.log_message(event, function_name, params=filtered_params)
-
-    def log_command_with_reply(self, event, function_name, reply_content, **kwargs):
-        """
-        记录带回复的指令
-
-        Args:
-            event: AstrMessageEvent 对象
-            function_name: 函数名称
-            reply_content: 回复内容
-            **kwargs: 要记录的参数
-        """
-        # 过滤敏感信息
-        filtered_params = {}
-        for key, value in kwargs.items():
-            if 'password' in key.lower() or 'token' in key.lower():
-                filtered_params[key] = '***'
-            else:
-                filtered_params[key] = value
-
-        return self.log_message(event, function_name, params=filtered_params, reply_content=reply_content)
+        return masked_params
 
     # ========== 查询方法 ==========
 
@@ -269,7 +263,7 @@ class DatabaseManager:
             row = cursor.fetchone()
             return row['reply_content'] if row else None
 
-    def get_function_messages(self, function_name, limit=100):
+    def get_function_messages(self, function_name, session_id=None, limit=100):
         """获取指定函数的所有调用记录"""
         with self.pool.get_connection() as conn:
             cursor = conn.cursor()

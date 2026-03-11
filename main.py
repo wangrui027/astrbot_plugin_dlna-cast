@@ -9,6 +9,43 @@ from ctr.db_utils import DatabaseManager
 
 COMMAND_DLNA_CAST = "dlna-cast"
 
+# 安全字段过滤
+SENSITIVE_FIELDS = {'password', 'token', 'secret', 'api_key', 'auth'}
+
+
+def build_params_dict(func_name, args, kwargs, func_code):
+    """
+    将函数参数组装成字典，自动过滤敏感信息
+
+    Args:
+        func_name: 函数名
+        args: 位置参数元组
+        kwargs: 关键字参数字典
+        func_code: 函数的 __code__ 对象，用于获取参数名
+
+    Returns:
+        dict: 参数字典，敏感字段会被替换为 "***"
+    """
+    # 获取函数参数名列表（排除 self）
+    arg_names = func_code.co_varnames[1:func_code.co_argcount]  # 跳过 self
+
+    params = {}
+
+    # 处理位置参数
+    for i, arg in enumerate(args):
+        if i < len(arg_names):
+            name = arg_names[i]
+            params[name] = "***" if name in SENSITIVE_FIELDS else arg
+
+    # 处理关键字参数
+    for name, value in kwargs.items():
+        params[name] = "***" if name in SENSITIVE_FIELDS else value
+
+    # 处理默认参数（未传入的）
+    # 可以在这里补充默认值，如果需要的话
+
+    return params
+
 
 class MyPlugin(Star):
     def __init__(self, context: Context):
@@ -28,9 +65,7 @@ class MyPlugin(Star):
     async def dlna_cast_help(self, event: AstrMessageEvent):
         """显示帮助信息"""
         logger.info("触发 /dlna-cast help 指令")
-
         self.db.log_message(event, inspect.currentframe().f_code.co_name)
-
         help_path = os.path.join(self.plugin_dir, 'help', 'base_help.md')
         try:
             with open(help_path, 'r', encoding='utf-8') as file:
@@ -47,6 +82,8 @@ class MyPlugin(Star):
     @webdav.command("help")
     async def webdav_help(self, event: AstrMessageEvent):
         """webdav 指令帮助"""
+        logger.info("触发 /dlna-cast webdav help 指令")
+        self.db.log_message(event, inspect.currentframe().f_code.co_name)
         # TODO
         yield event.plain_result(f"webdav 指令帮助")
 
@@ -54,9 +91,17 @@ class MyPlugin(Star):
     async def webdav_add(self, event: AstrMessageEvent, name: str, url: str, username: str = None,
                          password: str = None):
         """webdav 服务器添加"""
+        logger.info("触发 /dlna-cast webdav add 指令")
+        params_dict = {
+            'name': name,
+            'url': url,
+            'username': username,
+            'password': password
+        }
+        result = f"webdav 服务器添加, name: {name}, url: {url}, username: {username}, password: {password}"
+        self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
         # TODO
-        yield event.plain_result(
-            f"webdav 服务器添加, name: {name}, url: {url}, username: {username}, password: {password}")
+        yield event.plain_result(result)
 
     @webdav.command("ls")
     async def webdav_ls(self, event: AstrMessageEvent):
