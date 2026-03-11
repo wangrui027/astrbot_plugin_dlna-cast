@@ -70,9 +70,20 @@ class ConnectionPool:
                 host TEXT NOT NULL,
                 port INTEGER NOT NULL,
                 path TEXT NOT NULL,
+                is_selected BOOLEAN DEFAULT 0,
                 created_at DATETIME NOT NULL,
                 updated_at DATETIME NOT NULL
             )
+        ''')
+
+        # 确保is_selected字段只有一个为True
+        cursor.execute('''
+            CREATE TRIGGER IF NOT EXISTS ensure_single_selected
+            AFTER UPDATE OF is_selected ON webdav_config
+            BEGIN
+                UPDATE webdav_config SET is_selected = 0 
+                WHERE id != NEW.id AND is_selected = 1;
+            END;
         ''')
 
         conn.commit()
@@ -189,7 +200,8 @@ class DatabaseManager:
                     self._safe_json_dumps(params),
                     reply_content
                 ))
-                logger.info(f"log_message: function_name={function_name}, params={params} reply_content={reply_content}")
+                logger.info(
+                    f"log_message: function_name={function_name}, params={params} reply_content={reply_content}")
                 return cursor.lastrowid
         except Exception as e:
             # 打印错误但不要抛出，避免影响主流程

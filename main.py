@@ -56,6 +56,8 @@ class MyPlugin(Star):
         # 初始化数据库
         db_path = os.path.join(self.plugin_dir, 'data/plugin_data', 'data.db')
         self.db = DatabaseManager(db_path)
+        # 初始化WebDAV管理器
+        self.webdav_manager = WebDAVManager(self.db)
         logger.info(f"数据库初始化成功: {db_path}")
 
     @filter.command_group(COMMAND_DLNA_CAST)
@@ -85,8 +87,38 @@ class MyPlugin(Star):
         """webdav 指令帮助"""
         logger.info("触发 /dlna-cast webdav help 指令")
         self.db.log_message(event, inspect.currentframe().f_code.co_name)
-        # TODO
-        yield event.plain_result(f"webdav 指令帮助")
+
+        # 获取当前选中的服务器信息
+        success, msg, selected = self.webdav_manager.get_current_selected()
+        selected_info = f"\n\n✅ 当前选中：{selected['name']}" if success else "\n\n当前未选中任何服务器"
+
+        help_text = f"""
+📚 WebDAV 指令帮助：
+
+1️⃣ /dlna-cast webdav help
+    显示本帮助信息
+
+2️⃣ /dlna-cast webdav add <名称> <URL> [用户名] [密码]
+    添加WebDAV服务器配置（第一个添加的会自动选中）
+    示例：/dlna-cast webdav add 我的NAS http://192.168.1.100:5005/webdav admin 123456
+
+3️⃣ /dlna-cast webdav ls
+    列出所有已配置的WebDAV服务器
+
+4️⃣ /dlna-cast webdav select <序号>
+    选中指定序号的WebDAV服务器（用于后续浏览操作）
+    示例：/dlna-cast webdav select 1
+
+5️⃣ /dlna-cast webdav rm <序号>
+    删除指定序号的WebDAV服务器配置
+    示例：/dlna-cast webdav rm 2
+
+6️⃣ /dlna-cast webdav browse [路径]
+    浏览当前选中WebDAV服务器的资源，默认根目录
+    示例：/dlna-cast webdav browse /movies
+        {selected_info}
+        """
+        yield event.plain_result(help_text.strip())
 
     @webdav.command("add")
     async def webdav_add(self, event: AstrMessageEvent, name: str, url: str, username: str = None,
@@ -101,23 +133,20 @@ class MyPlugin(Star):
             'username': username,
             'password': password
         }
+
         try:
             # 创建配置对象
-            config = WebDAVConfig(
-                name=name,
-                url=url,
-                username=username,
-                password=password
-            )
+            config = WebDAVConfig.from_url(name, url, username, password)
 
-            # 创建管理器并添加配置
-            manager = WebDAVManager(self.db)
-            success, message = manager.add_config(config)
+            # 添加配置
+            success, message, saved_config = self.webdav_manager.add_config(config)
 
             if success:
                 result = f"✅ WebDAV服务【{name}】添加成功"
                 result += f"\n服务器: {config.url}"
-                result += f"\n用户名: {config.username}"
+                result += f"\n用户名: {config.username or '无'}"
+                if saved_config and saved_config.is_selected:
+                    result += f"\n\n✨ 这是第一个添加的服务器，已自动选中"
             else:
                 result = f"❌ WebDAV服务添加失败: {message}"
 
@@ -132,26 +161,148 @@ class MyPlugin(Star):
     @webdav.command("ls")
     async def webdav_ls(self, event: AstrMessageEvent):
         """webdav 服务器列表查看"""
-        # TODO
-        yield event.plain_result(f"webdav 服务器列表查看")
+        logger.info("触发 /dlna-cast webdav ls 指令")
+        self.db.log_message(event, inspect.currentframe().f_code.co_name)
+
+        try:
+            success, message, configs = self.webdav_manager.get_configs_list()
+
+            if success:
+                result = self.webdav_manager.format_config_list(configs)
+                if configs:
+                    result += "\n\n💡 使用 /dlna-cast webdav select <序号> 选中服务器进行浏览"
+            else:
+                result = f"❌ {message}"
+
+        except Exception as e:
+            logger.error(f"webdav_ls 异常: {e}")
+            result = f"❌ 获取列表失败: {str(e)}"
+
+        yield event.plain_result(result)
 
     @webdav.command("select")
     async def webdav_select(self, event: AstrMessageEvent, index: int):
         """webdav 服务器选中"""
-        # TODO
-        yield event.plain_result(f"webdav 服务器选中, index: {index}")
+        logger.info(f"触发 /dlna-cast webdav select 指令, index: {index}")
+
+        params_dict = {'index': index}
+
+        try:
+            success, message, config = self.webdav_manager.select_config(index)
+
+            if success and config:
+                result = f"✅ {message}"
+                result += f"\nURL: {config['url']}"
+                result += f"\n用户名: {config.get('username', '无')}"
+                result += "\n\n💡 现在可以使用以下命令："
+                result += "\n• /dlna-cast webdav browse [路径] - 浏览资源"
+                result += "\n• /dlna-cast webdav rm <序号> - 删除配置"
+            else:
+                result = f"❌ {message}"
+                # 如果失败，显示当前可用列表
+                _, _, configs = self.webdav_manager.get_configs_list()
+                if configs:
+                    result += f"\n\n当前可用配置：\n{self.webdav_manager.format_config_list(configs)}"
+
+        except Exception as e:
+            logger.error(f"webdav_select 异常: {e}")
+            result = f"❌ 选中操作失败: {str(e)}"
+
+        self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
+        yield event.plain_result(result)
 
     @webdav.command("rm")
     async def webdav_rm(self, event: AstrMessageEvent, index: int):
         """webdav 服务器删除"""
-        # TODO
-        yield event.plain_result(f"webdav 服务器删除, index: {index}")
+        logger.info(f"触发 /dlna-cast webdav rm 指令, index: {index}")
+
+        params_dict = {'index': index}
+
+        try:
+            success, message, deleted_config = self.webdav_manager.delete_config(index)
+
+            if success and deleted_config:
+                result = f"✅ {message}"
+                # 如果删除的是选中的，提示新的选中状态
+                if deleted_config['is_selected']:
+                    _, _, new_selected = self.webdav_manager.get_current_selected()
+                    if new_selected:
+                        result += f"\n\n已自动切换到新服务器：【{new_selected['name']}】"
+            else:
+                result = f"❌ {message}"
+                # 如果失败，显示当前可用列表
+                _, _, configs = self.webdav_manager.get_configs_list()
+                if configs:
+                    result += f"\n\n当前可用配置：\n{self.webdav_manager.format_config_list(configs)}"
+
+        except Exception as e:
+            logger.error(f"webdav_rm 异常: {e}")
+            result = f"❌ 删除操作失败: {str(e)}"
+
+        self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
+        yield event.plain_result(result)
 
     @webdav.command("browse")
     async def webdav_browse(self, event: AstrMessageEvent, path: str = "/"):
         """webdav 资源浏览"""
-        # TODO
-        yield event.plain_result(f"webdav 资源浏览, path: {path}")
+        logger.info(f"触发 /dlna-cast webdav browse 指令, path: {path}")
+
+        params_dict = {'path': path}
+
+        try:
+            success, message, items, selected_config = self.webdav_manager.browse_path(path)
+
+            if not success:
+                yield event.plain_result(f"❌ {message}")
+                # 如果没有选中，提示可用服务器
+                if "请先选中" in message:
+                    _, _, configs = self.webdav_manager.get_configs_list()
+                    if configs:
+                        result = f"❌ {message}\n\n可用服务器：\n{self.webdav_manager.format_config_list(configs)}"
+                        yield event.plain_result(result)
+                return
+
+            if not items:
+                result = f"📁 路径 '{path or '/'}' 下没有找到可浏览的内容"
+            else:
+                result = f"📁 WebDAV【{selected_config['name']}】- 路径: /{path or ''}\n\n"
+
+                # 分类显示目录和文件
+                dirs = [item for item in items if item.is_dir]
+                files = [item for item in items if not item.is_dir]
+
+                if dirs:
+                    result += "📂 目录：\n"
+                    for i, d in enumerate(dirs, 1):
+                        result += f"  {i}. 📁 {d.name}\n"
+                    result += "\n"
+
+                if files:
+                    result += "🎬 视频文件：\n"
+                    for i, f in enumerate(files, 1):
+                        # 格式化文件大小
+                        size = f.size
+                        if size < 1024:
+                            size_str = f"{size}B"
+                        elif size < 1024 * 1024:
+                            size_str = f"{size / 1024:.1f}KB"
+                        elif size < 1024 * 1024 * 1024:
+                            size_str = f"{size / 1024 / 1024:.1f}MB"
+                        else:
+                            size_str = f"{size / 1024 / 1024 / 1024:.2f}GB"
+
+                        result += f"  {i}. 🎥 {f.name} ({size_str})\n"
+
+                result += f"\n💡 共 {len(dirs)} 个目录，{len(files)} 个视频文件"
+                result += "\n\n使用 /dlna-cast play <文件名> 播放视频"
+                result += "\n使用 /dlna-cast webdav browse <子目录名> 进入子目录"
+
+        except Exception as e:
+            logger.error(f"webdav_browse 异常: {e}")
+            result = f"❌ 浏览失败: {str(e)}"
+
+        self.db.log_message(event, inspect.currentframe().f_code.co_name, params_dict, result)
+        yield event.plain_result(result)
 
     @dlna_cast.group("dlna")
     def dlna(self, event: AstrMessageEvent):
@@ -251,3 +402,5 @@ class MyPlugin(Star):
 
     async def terminate(self):
         """可选择实现 terminate 函数，当插件被卸载/停用时会调用。"""
+        self.db.close()
+        logger.info("数据库连接已关闭")
