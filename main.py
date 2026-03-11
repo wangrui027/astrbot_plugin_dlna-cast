@@ -262,6 +262,7 @@ class MyPlugin(Star):
     async def webdav_browse(self, event: AstrMessageEvent):
         """webdav 资源浏览"""
 
+        # 获取指令后的路径，指令后的内容全部作为 path，空格也算，无需引号引起来
         path = event.message_str.replace(f"{COMMAND_DLNA_CAST} webdav browse ", "", 1)
         logger.info(f"触发 /dlna-cast webdav browse 指令, path: {path}")
         params_dict = {'path': path}
