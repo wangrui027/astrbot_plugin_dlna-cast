@@ -1,0 +1,6 @@
+name: astrbot_plugin_dlna-cast
+display_name: dlna-cast
+desc: 从WebDAV/SMB推送视频到DLNA设备（电视/机顶盒），支持播放/暂停/进度控制
+version: v1.0.0
+author: wangrui027
+repo: https://github.com/wangrui027/astrbot_plugin_dlna-cast
