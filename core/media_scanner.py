@@ -7,7 +7,7 @@
 
 import os
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import List, Optional
 from urllib.parse import quote, unquote
 
 import requests

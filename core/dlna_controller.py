@@ -8,7 +8,7 @@ DLNA控制器模块
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from threading import Thread, Event
+from threading import Event
 from typing import Optional, Dict
 
 import requests

@@ -279,4 +279,3 @@ class DLNADiscover:
             print(f"设备验证失败: {e}")
 
         return None
-   
