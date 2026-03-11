@@ -12,10 +12,11 @@ class WebDAVConfig:
                  port: Optional[int] = None, path: Optional[str] = None):
         self.name = name
         self.url = url
+        self.protocol = 'http'
         self.username = username
         self.password = password
 
-        # 解析URL获取host、port、path
+        # 解析URL获取host、port、path和protocol
         if url and not host:
             self._parse_url(url)
         else:
@@ -25,28 +26,31 @@ class WebDAVConfig:
 
     def _parse_url(self, url: str):
         """解析WebDAV URL"""
-        # 移除协议部分
-        if url.startswith(('http://', 'https://')):
-            protocol_end = url.find('://') + 3
-            rest = url[protocol_end:]
-
-            # 分离host和path
-            if '/' in rest:
-                self.host, self.path = rest.split('/', 1)
-                self.path = '/' + self.path
-            else:
-                self.host = rest
-                self.path = '/'
-
-            # 分离host和port
-            if ':' in self.host:
-                self.host, port_str = self.host.split(':', 1)
-                self.port = int(port_str)
-            else:
-                self.port = 80 if url.startswith('http://') else 443
+        # 提取协议
+        if url.startswith('https://'):
+            self.protocol = 'https'
+            url_without_proto = url[8:]  # 移除 'https://'
+        elif url.startswith('http://'):
+            self.protocol = 'http'
+            url_without_proto = url[7:]  # 移除 'http://'
         else:
-            # 默认添加http://
-            self._parse_url('http://' + url)
+            self.protocol = 'http'  # 默认
+            url_without_proto = url
+
+        # 分离host和path
+        if '/' in url_without_proto:
+            self.host, self.path = url_without_proto.split('/', 1)
+            self.path = '/' + self.path
+        else:
+            self.host = url_without_proto
+            self.path = '/'
+
+        # 分离host和port
+        if ':' in self.host:
+            self.host, port_str = self.host.split(':', 1)
+            self.port = int(port_str)
+        else:
+            self.port = 80 if self.protocol == 'http' else 443
 
     def to_scanner_config(self):
         """转换为media_scanner所需的配置对象格式"""
@@ -57,9 +61,10 @@ class WebDAVConfig:
 
         config = ScannerConfig()
         config.name = self.name
+        config.path = self.path
+        config.protocol = self.protocol
         config.host = self.host
         config.port = self.port
-        config.path = self.path
         config.username = self.username
         config.password = self.password
 
@@ -114,15 +119,20 @@ class WebDAVManager:
                 if cursor.fetchone():
                     return False, f"配置名 '{config.name}' 已存在", None
 
+                # 确保protocol字段有值
+                if not hasattr(config, 'protocol') or not config.protocol:
+                    config.protocol = 'http'
+
                 cursor.execute('''
                     INSERT INTO webdav_config 
-                    (name, url, username, password, host, port, path, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (name, url, username, password, protocol, host, port, path, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     config.name,
                     config.url,
                     config.username,
                     config.password,
+                    config.protocol,
                     config.host,
                     config.port,
                     config.path,

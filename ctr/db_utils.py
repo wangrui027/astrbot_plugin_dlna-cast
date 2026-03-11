@@ -66,6 +66,7 @@ class ConnectionPool:
                 url TEXT NOT NULL,
                 username TEXT,
                 password TEXT,
+                protocol TEXT NOT NULL DEFAULT 'http',
                 host TEXT NOT NULL,
                 port INTEGER NOT NULL,
                 path TEXT NOT NULL,
